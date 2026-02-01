@@ -1,0 +1,208 @@
+PART 1: SENTIMENT ANALYSIS USING TEXTBLOB
+
+ Objective (What are we trying to learn?)
+The goal is to:
+* Convert unstructured text (reviews) into structured sentiment labels
+* Understand how people feel overall about a product/service
+* Learn how TextBlob performs sentiment analysis
+In real-world data science:
+* Reviews, tweets, comments, news = text
+* Models cannot directly use text → must convert to numerical or categorical features
+
+ Dataset Description
+The given dataset contains:
+* A column with text reviews (for example: review)
+Each row = one review
+
+What is TextBlob doing internally?
+TextBlob uses:
+* A lexicon-based approach
+* Each word has an associated sentiment score
+* Overall sentiment = average polarity of words
+Polarity range:
+Polarity Value	Meaning
++1	Extremely positive
+0	Neutral
+-1	Extremely negative
+ Code Explanation (Part 1)
+ Import libraries
+
+import pandas as pd
+from textblob import TextBlob
+import matplotlib.pyplot as plt
+Why?
+* pandas → data handling
+* TextBlob → sentiment analysis
+* matplotlib → visualization
+
+Load dataset
+
+df = pd.read_csv("Reviews.csv")
+Reads the CSV into a DataFrame where:
+* Rows = reviews
+* Columns = attributes (review text, etc.)
+
+ Sentiment function
+
+def get_sentiment(text):
+    polarity = TextBlob(str(text)).sentiment.polarity
+    if polarity > 0:
+        return "Positive"
+    elif polarity < 0:
+        return "Negative"
+    else:
+        return "Neutral"
+Step-by-step logic:
+1. Convert text to string (handles missing values)
+2. Extract polarity
+3. Apply rule-based classification:
+    * > 0 → Positive
+    * < 0 → Negative
+    * = 0 → Neutral
+This satisfies the assignment requirement of classifying into 3 categories.
+Apply sentiment analysis
+
+df["Sentiment"] = df["review"].apply(get_sentiment)
+What happens here?
+* Function runs on every review
+* Output stored in a new column
+* Dataset now contains sentiment labels
+First deliverable achieved
+
+ Sentiment distribution
+
+sentiment_counts = df["Sentiment"].value_counts()
+sentiment_percent = df["Sentiment"].value_counts(normalize=True) * 100
+Why this step?
+* To understand overall opinion
+* Normalization converts counts → percentages
+
+Visualization
+
+sentiment_counts.plot(kind="bar")
+Interpretation:
+* Taller bar = more reviews in that category
+* Helps visually understand sentiment dominance
+
+Brief Analysis (What you should conclude)
+Typical observations:
+* Majority reviews are positive
+* Negative reviews identify dissatisfaction
+* Neutral reviews are informational or emotionally balanced
+ Key learning: Sentiment analysis helps summarize large volumes of text quickly and objectively.
+
+PART 2: STOCK TREND PREDICTION USING SENTIMENT + TIME SERIES
+
+Objective (Why this part exists)
+Here we combine two data science domains:
+1. Natural Language Processing (news sentiment)
+2. Time Series Forecasting (stock prices)
+Real-world motivation:
+Markets react not only to past prices, but also to news and emotions
+
+Dataset Preparation
+We need two datasets:
+Stock Prices
+* Daily Close price
+* Date-based time series
+Source:
+* Yahoo Finance
+
+ News Headlines
+* One or more headlines per day
+* Each headline influences market sentiment
+Source:
+* Kaggle news dataset
+
+Sentiment Annotation (Part 2 reuse)
+Apply same sentiment logic
+
+news["Sentiment"] = news["Headline"].apply(get_sentiment)
+Consistency is important:
+* Same sentiment logic as Part 1
+* Ensures comparable interpretation
+
+Convert labels → numeric
+
+sentiment_map = {"Positive": 1, "Neutral": 0, "Negative": -1}
+news["Sentiment_Score"] = news["Sentiment"].map(sentiment_map)
+Why numeric?
+* Neural networks cannot process text
+* Numbers allow mathematical learning
+
+ Align News with Stock Prices
+ Daily aggregation
+
+daily_sentiment = news.groupby("Date")["Sentiment_Score"].mean()
+Reason:
+* Multiple headlines per day
+* We compute average sentiment for that day
+
+Merge with stock prices
+
+data = pd.merge(prices, daily_sentiment, on="Date", how="left")
+data["Sentiment_Score"].fillna(0, inplace=True)
+Important rule from assignment:
+If news is missing → treat as neutral sentiment
+This prevents data loss and bias.
+
+Feature Scaling
+
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(data[["Close", "Sentiment_Score"]])
+Why scaling is mandatory for LSTM?
+* LSTM uses gradient descent
+* Different scales cause unstable training
+* Scaling ensures faster and stable convergence
+
+Time Series Sequence Creation
+
+def create_sequences(data, time_steps=60):
+What this does conceptually:
+* Uses last 60 days of data to predict next day
+* Preserves temporal order
+This is how LSTM learns patterns over time
+
+ LSTM Model Explanation
+Why LSTM?
+* Traditional models fail with long dependencies
+* LSTM remembers long-term trends
+* Ideal for financial time series
+
+Model structure
+
+LSTM → LSTM → Dense
+* First LSTM learns short-term patterns
+* Second LSTM refines long-term dependencies
+* Dense outputs predicted price
+
+ Model Training
+
+model.fit(X_train, y_train)
+Model learns:
+* How price history
+* AND sentiment together influence future price
+
+ Evaluation & Visualization
+
+plt.plot(y_test)
+plt.plot(predictions)
+Interpretation:
+* Closer lines = better prediction
+* Sentiment-enhanced model usually:
+    * Reacts faster
+    * Is smoother
+    * Captures turning points better
+
+Insights & Observations
+Key findings:
+* Positive sentiment often precedes price increase
+* Negative sentiment correlates with volatility
+* Sentiment acts as a leading indicator
+* Price-only models miss emotional context
+
+OPTIONAL EXTENSION: MULTI-STOCK ANALYSIS
+If repeated for multiple stocks:
+* Tech stocks → highly sentiment sensitive
+* Defensive stocks → less sentiment impact
+* Sentiment does not generalize uniformly
